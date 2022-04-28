@@ -44,9 +44,9 @@ struct LogOut : public DataHeader {
 	char userName[32];
 };
 
-struct LogOutResule : public DataHeader {
-	LogOutResule() {
-		dataLength = sizeof(LogOutResule);
+struct LogOutResult : public DataHeader {
+	LogOutResult() {
+		dataLength = sizeof(LogOutResult);
 		cmd = CMD_LOGOUT_RESULT;
 		result = 0;
 	}
@@ -90,15 +90,15 @@ int main()
 			break;
 		}
 		else if (0 == strcmp(cmdBuff, "login")) {
-			LogIn Login;
-			strcpy(Login.userName,"hope");
-			strcpy(Login.PassWord, "123456");
+			LogIn LogIn;
+			strcpy(LogIn.userName,"hope");
+			strcpy(LogIn.PassWord, "123456");
 			//先发数据头
-			send(_socket, (const char *)&Login, sizeof (Login), 0);
+			send(_socket, (const char *)&LogIn, sizeof (LogIn), 0);
 			//接受服务器返回的数据
-			LogInResult Loginresult = {};
-			recv(_socket, (char*)&Loginresult, sizeof Loginresult, 0);
-			cout << "LoginResult:" << Loginresult.result << endl;
+			LogInResult LogInresult = {};
+			recv(_socket, (char*)&LogInresult, sizeof LogInresult, 0);
+			cout << "LogInResult:" << LogInresult.result << endl;
 		}
 		else if (0 == strcmp(cmdBuff, "logout")) {
 			LogOut logout;
@@ -106,9 +106,9 @@ int main()
 			//向服务器发送
 			send(_socket, (char *)&logout, sizeof (logout), 0);
 			//接收
-			LogOutResule Logoutresult = {};
-			recv(_socket, (char *)&Logoutresult, sizeof Logoutresult, 0);
-			cout << "LoginResult:" << Logoutresult.result << endl;
+			LogOutResult LogOutresult = {};
+			recv(_socket, (char *)&LogOutresult, sizeof LogOutresult, 0);
+			cout << "LogInResult:" << LogOutresult.result << endl;
 		}
 		else {
 			cout << "不支持的命令：重新输入" << endl;
