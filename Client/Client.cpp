@@ -8,7 +8,9 @@ using namespace std;
 
 enum CMD {
 	CMD_LOGIN,
+	CMD_LOGIN_RESULT,
 	CMD_LOGOUT,
+	CMD_LOGOUT_RESULT,
 	CMD_ERROR
 };
 //消息头
@@ -17,19 +19,37 @@ struct DataHeader {
 	short cmd;//命令
 };
 //登入
-struct LogIn {
+struct LogIn : public DataHeader {
+	LogIn() {
+		dataLength = sizeof(LogIn);
+		cmd = CMD_LOGIN;
+	}
 	char userName[32];
 	char PassWord[32];
 };
-struct LogInResule {
+struct LogInResult : public DataHeader {
+	LogInResult() {
+		dataLength = sizeof(LogInResult);
+		cmd = CMD_LOGIN_RESULT;
+		result = 0;
+	}
 	int result;
 };
 //登出
-struct LogOut {
+struct LogOut : public DataHeader {
+	LogOut() {
+		dataLength = sizeof(LogOut);
+		cmd = CMD_LOGOUT;
+	}
 	char userName[32];
 };
 
-struct LogOutResule {
+struct LogOutResule : public DataHeader {
+	LogOutResule() {
+		dataLength = sizeof(LogOutResule);
+		cmd = CMD_LOGOUT_RESULT;
+		result = 0;
+	}
 	int result;
 };
 
@@ -70,29 +90,23 @@ int main()
 			break;
 		}
 		else if (0 == strcmp(cmdBuff, "login")) {
-			LogIn Login = { "hope","123456" };
-			DataHeader dh = { sizeof(Login) ,CMD_LOGIN };
-			
+			LogIn Login;
+			strcpy(Login.userName,"hope");
+			strcpy(Login.PassWord, "123456");
 			//先发数据头
-			send(_socket, (const char *)&dh, sizeof(dh), 0);
 			send(_socket, (const char *)&Login, sizeof (Login), 0);
 			//接受服务器返回的数据
-			DataHeader retHeaderin = {};
-			LogInResule Loginresult = {};
-			recv(_socket, (char*)&retHeaderin, sizeof retHeaderin, 0);
+			LogInResult Loginresult = {};
 			recv(_socket, (char*)&Loginresult, sizeof Loginresult, 0);
 			cout << "LoginResult:" << Loginresult.result << endl;
 		}
 		else if (0 == strcmp(cmdBuff, "logout")) {
-			LogOut logout = { "hope" };
-			DataHeader dh = {sizeof logout ,CMD_LOGOUT };
+			LogOut logout;
+			strcpy(logout.userName, "hope");
 			//向服务器发送
-			send(_socket, (char *)&dh, sizeof(dh), 0);
 			send(_socket, (char *)&logout, sizeof (logout), 0);
 			//接收
-			DataHeader retHeaderout = {};
 			LogOutResule Logoutresult = {};
-			recv(_socket, (char *)&retHeaderout, sizeof retHeaderout, 0);
 			recv(_socket, (char *)&Logoutresult, sizeof Logoutresult, 0);
 			cout << "LoginResult:" << Logoutresult.result << endl;
 		}

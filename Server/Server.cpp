@@ -11,29 +11,48 @@ using namespace std;
 */
 enum CMD {
 	CMD_LOGIN,
+	CMD_LOGIN_RESULT,
 	CMD_LOGOUT,
+	CMD_LOGOUT_RESULT,
 	CMD_ERROR
 };
-
 //消息头
 struct DataHeader {
 	short dataLength;// 数据长度
 	short cmd;//命令
 };
 //登入
-struct LogIn {
+struct LogIn : public DataHeader {
+	LogIn() {
+		dataLength = sizeof(LogIn);
+		cmd = CMD_LOGIN;
+	}
 	char userName[32];
 	char PassWord[32];
 };
-struct LogInResule {
+struct LogInResult : public DataHeader {
+	LogInResult() {
+		dataLength = sizeof(LogInResult);
+		cmd = CMD_LOGIN_RESULT;
+		result = 0;
+	}
 	int result;
 };
 //登出
-struct LogOut {
+struct LogOut : public DataHeader {
+	LogOut() {
+		dataLength = sizeof(LogOut);
+		cmd = CMD_LOGOUT;
+	}
 	char userName[32];
 };
 
-struct LogOutResule {
+struct LogOutResule : public DataHeader {
+	LogOutResule() {
+		dataLength = sizeof(LogOutResule);
+		cmd = CMD_LOGOUT_RESULT;
+		result = 0;
+	}
 	int result;
 };
 
@@ -93,37 +112,33 @@ int main()
 
 	while (true) {
 		DataHeader header = {};
-
 		// 5. 接收客户端发送的请求
 		int nLen = recv(_clientSocket, (char *)&header, sizeof DataHeader, 0);
-		
 		if (nLen <= 0) {
 			cout << "客户端已退出,任务结束" << endl;
 			break;
 		}
-		cout << "收到命令：" << header.cmd << "收到数据长度：" << header.dataLength<<endl;
-		
-		
 		//6. 处理请求
 		switch (header.cmd) {
 			case CMD_LOGIN: {
 				LogIn login = {};
-				recv(_clientSocket, (char *)&login, sizeof LogIn, 0);
+				//前面接受了一部分的内容 即header，所以需要加一个地址偏移来获取login 同样大小也需要改变
+				recv(_clientSocket, (char *)&login + sizeof(DataHeader), sizeof LogIn - sizeof(DataHeader), 0);
+				cout << "收到命令：" << login.cmd << "收到数据长度：" << login.dataLength;
+				cout << "username = " << login.userName << " Password = " << login.PassWord << endl;
 				//忽略判断用户密码是否正确的过程
-				LogInResule ret = { 0 };
-
-				send(_clientSocket, (char *)&header, sizeof DataHeader, 0);
-				send(_clientSocket, (char *)&ret, sizeof LogInResule, 0);
+				LogInResult ret;
+				send(_clientSocket, (char *)&ret, sizeof LogInResult, 0);
 			
 			}
 			break;
 			case CMD_LOGOUT: {
 				LogOut logout = {};
-				recv(_clientSocket, (char *)&logout, sizeof LogOut, 0);
+				recv(_clientSocket, (char *)&logout + sizeof(DataHeader), sizeof LogOut - sizeof(DataHeader), 0);
+				cout << "收到命令：" << logout.cmd << "收到数据长度：" << logout.dataLength;
+				cout << " username = " << logout.userName<<endl;
 				//忽略判断用户密码是否正确的过程
-				LogOutResule ret = { 0 };
-
-				send(_clientSocket, (char *)&header, sizeof DataHeader, 0);
+				LogOutResule ret;
 				send(_clientSocket, (char *)&ret, sizeof LogOutResule, 0);
 			}
 			break;
