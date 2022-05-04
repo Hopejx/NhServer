@@ -2,11 +2,13 @@
 #define WIN32_LEAN_AND_MEAN 
 #include<Windows.h>
 #include<WinSock2.h>
-
+#include<thread>
 //#define _WINSOCK_DEPRECATED_NO_WARNINGS
 using namespace std;
 #pragma warning(disable:4996)
 #pragma once
+
+bool flag = false;
 enum CMD {
 	CMD_LOGIN,
 	CMD_LOGIN_RESULT,
@@ -102,6 +104,30 @@ int PROCESSOR(SOCKET _cSock)
 	return 0;
 }
 
+void cmdTread(SOCKET _socket) {
+	
+	while (true) {
+		char cmdBuff[256] = {};
+		scanf("%s", cmdBuff);
+		if (0 == strcmp(cmdBuff, "exit")) {
+			flag = true;
+			cout << "线程任务结束" << endl;
+			break;
+		}
+		else if (0 == strcmp(cmdBuff, "login")) {
+			LogIn login;
+			strcpy(login.userName, "hope");
+			strcpy(login.PassWord, "123456");
+			send(_socket, (char *)(&login), sizeof LogIn, 0);
+		}
+		else if (0 == strcmp(cmdBuff, "logout")) {
+			LogOut logout;
+			strcpy(logout.userName, "hope");
+			send(_socket, (char *)(&logout), sizeof LogOut, 0);
+		}
+		else cout << "不支持的命令" << endl;
+	}
+}
 
 int main()
 {
@@ -130,8 +156,11 @@ int main()
 		cout << "连接服务器成功" << endl;
 	}
 
-	char cmdBuff[128] = {};
-	while (true) {
+	thread td(cmdTread, _socket);
+	//与主线程分离
+	td.detach();
+
+	while (!flag) {
 		fd_set fdReads;
 		//初始化
 		FD_ZERO(&fdReads);
@@ -154,12 +183,8 @@ int main()
 				break;
 			}
 		}
-		LogIn login;
-		strcpy(login.userName, "hope");
-		strcpy(login.PassWord, "123456");
-		Sleep(1000);
-		send(_socket, (char *)(&login), sizeof LogIn, 0);
-		cout << "空闲时间处理其他业务" << endl;
+
+		//cout << "空闲时间处理其他业务" << endl;
 	}
 
 	//7. 关闭套接字
