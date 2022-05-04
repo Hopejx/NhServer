@@ -1,23 +1,22 @@
 #include <iostream>
 #define WIN32_LEAN_AND_MEAN 
-#include<Windows.h>
 #include<string>
-#include<WinSock2.h>
 #include<vector>
 #include<algorithm>
+
+#include<WinSock2.h>
+#include<Windows.h>
+
 using namespace std;
 #pragma warning(disable:4996)
-
-
-/* 只能在win条件下
-//调用 win 静态链接库
-#pragma comment(lib,"ws2_32.lib")
-*/
+#pragma once
+//server
 enum CMD {
 	CMD_LOGIN,
 	CMD_LOGIN_RESULT,
 	CMD_LOGOUT,
 	CMD_LOGOUT_RESULT,
+	CMD_NEW_USER_JOIN,
 	CMD_ERROR
 };
 //消息头
@@ -59,8 +58,24 @@ struct LogOutResult : public DataHeader {
 	}
 	int result;
 };
-vector<SOCKET> g_clients;
 
+struct NewUserJoin : public DataHeader {
+	NewUserJoin() {
+		dataLength = sizeof(NewUserJoin);
+		cmd = CMD_NEW_USER_JOIN;
+		socket_id = 0;
+	}
+	int socket_id;
+};
+
+
+/* 只能在win条件下
+//调用 win 静态链接库
+#pragma comment(lib,"ws2_32.lib")
+*/
+
+vector<SOCKET> g_clients;
+// fun
 int PROCESSOR(SOCKET _cSock)
 {
 	//缓冲区
@@ -102,7 +117,9 @@ int PROCESSOR(SOCKET _cSock)
 	}
 	break;
 	}
+	return 0;
 }
+
 int main()
 {
 	//版本号
@@ -146,30 +163,35 @@ int main()
 		fd_set fdRead;
 		fd_set fdWrite;
 		fd_set fdExp;
-
+		//用FD_ZERO宏来初始化我们感兴趣的fd_set。
 		FD_ZERO(&fdRead);
 		FD_ZERO(&fdWrite);
 		FD_ZERO(&fdExp);
-
+		//用FD_SET宏来将套接字句柄分配给相应的fd_set。
 		FD_SET(_sock, &fdRead);
 		FD_SET(_sock, &fdWrite);
 		FD_SET(_sock, &fdExp);
-
+		
 		for (int i = 0; i < g_clients.size(); i++)
 		{
+			//加到可读序列里面
 			FD_SET(g_clients[i], &fdRead);
 		}
+		
 		//nfds 是一个整数值 是指fd_set集合中所有描述符(socket)的范围，而不是数量
 		//既是所有文件描述符最大值+1 在Windows中这个参数可以写0
-		timeval t = { 0,0 };
+		timeval t = { 1,0 };
+		//如果该套接字没有数据需要接收，select函数会把该套接字从可读性检查队列中删除掉，
 		int ret = select(_sock + 1, &fdRead, &fdWrite, &fdExp, &t);
 		if (ret < 0)
 		{
 			printf("select任务结束。\n");
 			break;
 		}
+		//判断_sock 是否在fdRead中
 		if (FD_ISSET(_sock, &fdRead))
 		{
+			//清除监听的描述符
 			FD_CLR(_sock, &fdRead);
 			// 4 accept 等待接受客户端连接
 			sockaddr_in clientAddr = {};
@@ -180,8 +202,16 @@ int main()
 			{
 				printf("错误,接受到无效客户端SOCKET...\n");
 			}
-			g_clients.push_back(_cSock);
-			printf("新客户端加入：socket = %d,IP = %s \n", (int)_cSock, inet_ntoa(clientAddr.sin_addr));
+			else {
+				for (int i = 0; i < g_clients.size(); i++)
+				{
+					//群发给其他客户端
+					NewUserJoin userjoin;
+					send(g_clients[i], (char*)(&userjoin), sizeof NewUserJoin, 0);
+				}
+				g_clients.push_back(_cSock);
+				printf("新客户端加入：socket = %d,IP = %s \n", (int)_cSock, inet_ntoa(clientAddr.sin_addr));
+			}
 		}
 		for (size_t n = 0; n < fdRead.fd_count; n++)
 		{
@@ -194,6 +224,7 @@ int main()
 				}
 			}
 		}
+		cout << "空闲时间处理其他" << endl;
 	}
 
 	//8. 关闭套接字

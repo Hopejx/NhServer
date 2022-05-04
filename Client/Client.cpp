@@ -2,15 +2,17 @@
 #define WIN32_LEAN_AND_MEAN 
 #include<Windows.h>
 #include<WinSock2.h>
+
 //#define _WINSOCK_DEPRECATED_NO_WARNINGS
 using namespace std;
 #pragma warning(disable:4996)
-
+#pragma once
 enum CMD {
 	CMD_LOGIN,
 	CMD_LOGIN_RESULT,
 	CMD_LOGOUT,
 	CMD_LOGOUT_RESULT,
+	CMD_NEW_USER_JOIN,
 	CMD_ERROR
 };
 //消息头
@@ -53,6 +55,54 @@ struct LogOutResult : public DataHeader {
 	int result;
 };
 
+struct NewUserJoin : public DataHeader {
+	NewUserJoin() {
+		dataLength = sizeof(NewUserJoin);
+		cmd = CMD_NEW_USER_JOIN;
+		socket_id = 0;
+	}
+	int socket_id;
+};
+
+int PROCESSOR(SOCKET _cSock)
+{
+	//缓冲区
+	char szRecv[4096] = {};
+	// 5 接收客户端数据
+	int nLen = recv(_cSock, szRecv, sizeof(DataHeader), 0);
+	DataHeader* header = (DataHeader*)szRecv;
+	if (nLen <= 0)
+	{
+		printf("与服务器断开连接，任务结束。\n");
+		return -1;
+	}
+	switch (header->cmd)
+	{
+		case CMD_LOGIN_RESULT:
+		{
+			recv(_cSock, szRecv + sizeof(DataHeader), header->dataLength - sizeof(DataHeader), 0);
+			LogInResult* loginresult = (LogInResult*)szRecv;
+			printf("收到服务器数据：CMD_LOGIN_RESULT,数据长度：%d\n", loginresult->dataLength);
+		}
+		break;
+		case CMD_LOGOUT_RESULT:
+		{
+			recv(_cSock, szRecv + sizeof(DataHeader), header->dataLength - sizeof(DataHeader), 0);
+			LogOutResult* logoutresult = (LogOutResult*)szRecv;
+			printf("收到服务器数据：CMD_LOGOUT_RESULT,数据长度：%d\n", logoutresult->dataLength);
+		}
+		break;
+		case CMD_NEW_USER_JOIN: 
+		{
+			recv(_cSock, szRecv + sizeof(DataHeader), header->dataLength - sizeof(DataHeader), 0);
+			NewUserJoin* newuserjoin = (NewUserJoin*)szRecv;
+			printf("收到服务器数据：CMD_NEW_USER_JOIN,数据长度：%d\n", newuserjoin->dataLength);
+		}
+	}
+	return 0;
+}
+
+
 int main()
 {
 	//版本号
@@ -82,37 +132,34 @@ int main()
 
 	char cmdBuff[128] = {};
 	while (true) {
-		//3. 输入请求命令
-		scanf("%s", &cmdBuff);
-		//4. 处理请求命令
-		if (0 == strcmp(cmdBuff, "exit")) {
-			cout << "循环结束" << endl;
+		fd_set fdReads;
+		//初始化
+		FD_ZERO(&fdReads);
+		//将SOCKET 分配给fdReads
+		FD_SET(_socket,&fdReads);
+
+		//fd_set fdWrite;
+		//fd_set fdError;
+		timeval t = { 1, 0 };
+		int ret = select(_socket + 1, &fdReads, 0, 0, &t);
+		if (ret < 0) {
+			cout << "任务结束" << endl;
 			break;
 		}
-		else if (0 == strcmp(cmdBuff, "login")) {
-			LogIn LogIn;
-			strcpy(LogIn.userName,"hope");
-			strcpy(LogIn.PassWord, "123456");
-			//先发数据头
-			send(_socket, (const char *)&LogIn, sizeof (LogIn), 0);
-			//接受服务器返回的数据
-			LogInResult LogInresult = {};
-			recv(_socket, (char*)&LogInresult, sizeof LogInresult, 0);
-			cout << "LogInResult:" << LogInresult.result << endl;
+		if (FD_ISSET(_socket, &fdReads)) {
+			//总的来说就是，删除集合set中套接字fd
+			FD_CLR(_socket, &fdReads);
+			if (-1 == PROCESSOR(_socket)) {
+				cout << "select任务结束" << endl;
+				break;
+			}
 		}
-		else if (0 == strcmp(cmdBuff, "logout")) {
-			LogOut logout;
-			strcpy(logout.userName, "hope");
-			//向服务器发送
-			send(_socket, (char *)&logout, sizeof (logout), 0);
-			//接收
-			LogOutResult LogOutresult = {};
-			recv(_socket, (char *)&LogOutresult, sizeof LogOutresult, 0);
-			cout << "LogInResult:" << LogOutresult.result << endl;
-		}
-		else {
-			cout << "不支持的命令：重新输入" << endl;
-		}
+		LogIn login;
+		strcpy(login.userName, "hope");
+		strcpy(login.PassWord, "123456");
+		Sleep(1000);
+		send(_socket, (char *)(&login), sizeof LogIn, 0);
+		cout << "空闲时间处理其他业务" << endl;
 	}
 
 	//7. 关闭套接字
